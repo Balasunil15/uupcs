@@ -6,8 +6,6 @@ if (empty($_SESSION['user_id'])||$_SESSION['role'] != 'ceo') {
     exit;
 }
 
-
-
 // Fetch engineers dynamically based on session department
 $department = $_SESSION['department'];
 $engineers = [];
@@ -265,5 +263,4 @@ $stmt->close();
         });
     </script>
 </body>
-
 </html>
