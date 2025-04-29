@@ -32,6 +32,9 @@ $user['created_at'] = date('Y-m-d', strtotime($user['created_at']));
   <!-- Added jQuery and Bootstrap Bundle JS -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Added DataTables CSS and JS -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
+  <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
 </head>
 
 <body>

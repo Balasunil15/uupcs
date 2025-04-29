@@ -20,6 +20,9 @@ if (empty($_SESSION['user_id'])) {
   <!-- Added jQuery and Bootstrap Bundle JS -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Added DataTables CSS and JS -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
+  <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
 </head>
 
 <body>
@@ -49,12 +52,7 @@ if (empty($_SESSION['user_id'])) {
           </a>
         </li>
       </ul>
-      <div class="sidebar-footer">
-        <a href="login.html" class="back-btn">
-          <i class="fas fa-sign-out-alt"></i>
-          <span class="nav-item">Logout</span>
-        </a>
-      </div>
+      
     </nav>
   </div>
 
@@ -86,116 +84,109 @@ if (empty($_SESSION['user_id'])) {
     </header>
 
     <div class="tasks-container">
-      <div class="tasks-header">
-        <h2>Assigned Schemes</h2>
-        <button class="add-task-btn" id="addTaskBtn">
-          <i class="fas fa-plus"></i> Add Task
-        </button>
-      </div>
-
       <div class="schemes-tabs">
-        <button class="tab-btn active" data-tab="tasks">Tasks</button>
-        <button class="tab-btn" data-tab="resources">Resources</button>
+        <button class="tab-btn active" data-tab="ongoing">Ongoing</button>
+        <button class="tab-btn" data-tab="completed">Completed</button>
       </div>
 
-      <div class="tab-content active" id="tasks">
-        <div class="schemes-tabs">
-          <button class="tab-btn task-tab active" data-tab="ongoing-tasks">
-            Ongoing
-          </button>
-          <button class="tab-btn task-tab" data-tab="completed-tasks">
-            Completed
-          </button>
-        </div>
+      <div class="tab-content active" id="ongoing">
+        <table id="ongoingSchemesTable" class="table table-striped">
+          <thead>
+            <tr>
+              <th>Scheme ID</th>
+              <th>Title</th>
+              <th>Description</th>
+              <th>Deadline</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php
+            $userId = $_SESSION['user_id'];
+            $query = "SELECT * FROM schemes WHERE assigned_engineer_id = ? AND LOWER(status) = 'ongoing'";
+            $stmt = $conn->prepare($query);
+            $stmt->bind_param("i", $userId);
+            $stmt->execute();
+            $result = $stmt->get_result();
 
-        <div class="tab-content task-content active" id="ongoing-tasks">
-          <div class="schemes-table">
-            <table>
-              <thead>
-                <tr>
-                  <th>TID</th>
-                  <th>Description</th>
-                  <th>Deadline</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr onclick="openModal(this)" style="cursor: pointer">
-                  <td>T001</td>
-                  <td>Initial Survey</td>
-                  <td>2024-03-01</td>
-                  <td><span class="task-status pending">Pending</span></td>
-                </tr>
-                <tr onclick="openModal(this)" style="cursor: pointer">
-                  <td>T002</td>
-                  <td>Site Preparation</td>
-                  <td>2024-03-15</td>
-                  <td>
-                    <span class="task-status in-progress">In Progress</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+            $schemes = [];
+            while ($row = $result->fetch_assoc()) {
+              $schemes[] = $row;
+            }
 
-        <div class="tab-content task-content" id="completed-tasks">
-          <div class="schemes-table">
-            <table>
-              <thead>
-                <tr>
-                  <th>TID</th>
-                  <th>Description</th>
-                  <th>Deadline</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr onclick="openModal(this)" style="cursor: pointer">
-                  <td>T003</td>
-                  <td>Site Preparation</td>
-                  <td>2024-02-15</td>
-                  <td>
-                    <span class="task-status completed">Completed</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+            foreach ($schemes as $row) {
+              ?>
+              <tr>
+                <td><?php echo htmlspecialchars($row['id']); ?></td>
+                <td><?php echo htmlspecialchars($row['title']); ?></td>
+                <td>
+                  <button class="btn btn-primary btn-sm view-description-btn" data-bs-toggle="modal" data-bs-target="#descriptionModal"
+                    data-description="<?php echo htmlspecialchars($row['description']); ?>"
+                    data-region="<?php echo htmlspecialchars($row['region']); ?>"
+                    data-budget="<?php echo htmlspecialchars($row['budget']); ?>">
+                    View
+                  </button>
+                </td>
+                <td><?php echo htmlspecialchars($row['deadline']); ?></td>
+              </tr>
+              <?php
+            }
+
+            if (empty($schemes)) {
+              echo '<tr><td colspan="4">No ongoing schemes found.</td></tr>';
+            }
+            ?>
+          </tbody>
+        </table>
       </div>
 
-      <div class="tab-content" id="resources">
-        <div class="schemes-table">
-          <table>
-            <thead>
+      <div class="tab-content" id="completed">
+        <table id="completedSchemesTable" class="table table-striped">
+          <thead>
+            <tr>
+              <th>Scheme ID</th>
+              <th>Title</th>
+              <th>Description</th>
+              <th>Deadline</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php
+            $userId = $_SESSION['user_id'];
+            $query = "SELECT * FROM schemes WHERE assigned_engineer_id = ? AND LOWER(status) = 'completed'";
+            $stmt = $conn->prepare($query);
+            $stmt->bind_param("i", $userId);
+            $stmt->execute();
+            $result = $stmt->get_result();
+
+            $schemes = [];
+            while ($row = $result->fetch_assoc()) {
+              $schemes[] = $row;
+            }
+
+            foreach ($schemes as $row) {
+              ?>
               <tr>
-                <th>RID</th>
-                <th>Resource Name</th>
-                <th>Quantity</th>
-                <th>Image</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>R001</td>
-                <td>Cement Bags</td>
-                <td>500</td>
+                <td><?php echo htmlspecialchars($row['id']); ?></td>
+                <td><?php echo htmlspecialchars($row['title']); ?></td>
                 <td>
-                  <img src="assets/cement.jpg" alt="Cement" class="resource-image" />
+                  <button class="btn btn-primary btn-sm view-description-btn" data-bs-toggle="modal" data-bs-target="#descriptionModal"
+                    data-description="<?php echo htmlspecialchars($row['description']); ?>"
+                    data-region="<?php echo htmlspecialchars($row['region']); ?>"
+                    data-budget="<?php echo htmlspecialchars($row['budget']); ?>">
+                    View
+                  </button>
                 </td>
+                <td><?php echo htmlspecialchars($row['deadline']); ?></td>
               </tr>
-              <tr>
-                <td>R002</td>
-                <td>Steel Rods</td>
-                <td>1000</td>
-                <td>
-                  <img src="assets/steel.jpg" alt="Steel" class="resource-image" />
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+              <?php
+            }
+
+            if (empty($schemes)) {
+              echo '<tr><td colspan="4">No completed schemes found.</td></tr>';
+            }
+            ?>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -239,6 +230,26 @@ if (empty($_SESSION['user_id'])) {
     </div>
   </div>
 
+  <!-- Description Modal -->
+  <div class="modal fade" id="descriptionModal" tabindex="-1" aria-labelledby="descriptionModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="descriptionModalLabel">Scheme Details</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p><strong>Description:</strong> <span id="modalDescription"></span></p>
+          <p><strong>Region:</strong> <span id="modalRegion"></span></p>
+          <p><strong>Budget:</strong> <span id="modalBudget"></span></p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     const toggle = document.querySelector(".toggle");
     const sidebar = document.querySelector(".sidebar");
@@ -277,6 +288,41 @@ if (empty($_SESSION['user_id'])) {
         error: function () {
           alert("An error occurred. Please try again.");
         }
+      });
+    });
+
+    const tabs = document.querySelectorAll(".tab-btn");
+    const tabContents = document.querySelectorAll(".tab-content");
+
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        // Remove active class from all tabs and contents
+        tabs.forEach((t) => t.classList.remove("active"));
+        tabContents.forEach((content) => content.classList.remove("active"));
+
+        // Add active class to the clicked tab and corresponding content
+        tab.classList.add("active");
+        const target = tab.getAttribute("data-tab");
+        document.getElementById(target).classList.add("active");
+      });
+    });
+
+    $(document).ready(function () {
+      // Initialize DataTable
+      $('#ongoingSchemesTable').DataTable();
+      $('#completedSchemesTable').DataTable();
+    });
+
+    // Populate modal with scheme details
+    document.querySelectorAll('.view-description-btn').forEach(button => {
+      button.addEventListener('click', function () {
+        const description = this.getAttribute('data-description');
+        const region = this.getAttribute('data-region');
+        const budget = this.getAttribute('data-budget');
+
+        document.getElementById('modalDescription').textContent = description;
+        document.getElementById('modalRegion').textContent = region;
+        document.getElementById('modalBudget').textContent = budget;
       });
     });
   </script>
