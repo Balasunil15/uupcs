@@ -116,7 +116,11 @@ if (empty($_SESSION['user_id'])) {
             foreach ($schemes as $row) {
               ?>
               <tr>
-                <td><?php echo htmlspecialchars($row['id']); ?></td>
+                <td>
+                  <a href="scheme-details.php?id=<?php echo htmlspecialchars($row['id']); ?>" class="text-decoration-none">
+                    <?php echo htmlspecialchars($row['id']); ?>
+                  </a>
+                </td>
                 <td><?php echo htmlspecialchars($row['title']); ?></td>
                 <td>
                   <button class="btn btn-primary btn-sm view-description-btn" data-bs-toggle="modal" data-bs-target="#descriptionModal"
