@@ -1,9 +1,22 @@
 <?php
+include 'db.php';
 session_start();
 if (empty($_SESSION['user_id'])) {
   header('Location: login.php');
   exit;
 }
+
+// Fetch user details from the database
+$user_id = $_SESSION['user_id'];
+$query = "SELECT name, email, mobile, created_at FROM users WHERE id = ?";
+$stmt = $conn->prepare($query);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
+$user = $result->fetch_assoc();
+$stmt->close();
+
+$user['created_at'] = date('Y-m-d', strtotime($user['created_at']));
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -85,8 +98,8 @@ if (empty($_SESSION['user_id'])) {
           <img src="assets/profile-logo.png" alt="Profile Picture" />
         </div>
         <div class="profile-info">
-          <h2>Rahul Kumar</h2>
-          <p>EID: E001</p>
+          <h2><?php echo htmlspecialchars($user['name']); ?></h2>
+          <p>EID: <?php echo htmlspecialchars($user_id); ?></p>
           <span class="status-badge active">Active</span>
         </div>
       </div>
@@ -95,29 +108,23 @@ if (empty($_SESSION['user_id'])) {
         <div class="form-row">
           <div class="form-group">
             <label for="full-name">Full Name</label>
-            <input type="text" id="full-name" value="Rahul Kumar" />
+            <input type="text" id="full-name" value="<?php echo htmlspecialchars($user['name']); ?>" />
           </div>
           <div class="form-group">
             <label for="email">Email</label>
-            <input type="email" id="email" value="rahul@example.com" />
+            <input type="email" id="email" value="<?php echo htmlspecialchars($user['email']); ?>" />
           </div>
         </div>
 
         <div class="form-row">
           <div class="form-group">
             <label for="phone">Phone Number</label>
-            <input type="tel" id="phone" value="+91 9876543210" />
+            <input type="tel" id="phone" value="<?php echo htmlspecialchars($user['mobile']); ?>" />
           </div>
           <div class="form-group">
             <label for="joining-date">Joining Date</label>
-            <input type="date" id="joining-date" value="2023-01-15" readonly />
+            <input type="date" id="joining-date" value="<?php echo htmlspecialchars($user['created_at']); ?>" readonly />
           </div>
-        </div>
-
-        <div class="form-group">
-          <label for="address">Address</label>
-          <textarea id="address" rows="3">
-123 Main Street, City, State, PIN</textarea>
         </div>
 
         <div class="form-row">
@@ -185,6 +192,62 @@ if (empty($_SESSION['user_id'])) {
       });
     });
   </script>
-</body>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+  $(document).ready(function () {
+    // Handle form submission
+    $('.profile-form').on('submit', function (e) {
+      e.preventDefault();
 
+      const formData = {
+        action: 'update_profile',
+        name: $('#full-name').val(),
+        email: $('#email').val(),
+        phone: $('#phone').val(),
+        current_password: $('#current-password').val() || null,
+        new_password: $('#new-password').val() || null
+      };
+
+      $.ajax({
+        url: 'backend.php',
+        type: 'POST',
+        data: formData,
+        dataType: 'json',
+        success: function (response) {
+          if (response.success) {
+            Swal.fire({
+              icon: 'success',
+              title: 'Success',
+              text: response.message || 'Profile updated successfully.',
+            }).then(() => {
+              location.reload();
+            });
+          } else {
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: response.message || 'Failed to update profile.',
+            });
+          }
+        },
+        error: function () {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'An error occurred. Please try again.',
+          });
+        }
+      });
+    });
+
+    // Toggle password visibility
+    $('.toggle-password').on('click', function () {
+      const input = $(this).siblings('input');
+      const type = input.attr('type') === 'password' ? 'text' : 'password';
+      input.attr('type', type);
+      $(this).toggleClass('fa-eye fa-eye-slash');
+    });
+  });
+</script>
+</body>
 </html>

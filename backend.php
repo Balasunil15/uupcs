@@ -196,6 +196,61 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action'])) {
         }
         exit;
     }
+
+    if ($_POST['action'] === 'update_profile') {
+        $user_id = $_SESSION['user_id'];
+        $name = $_POST['name'] ?? '';
+        $email = $_POST['email'] ?? '';
+        $phone = $_POST['phone'] ?? '';
+        $current_password = $_POST['current_password'] ?? null;
+        $new_password = $_POST['new_password'] ?? null;
+
+        // Validate inputs
+        if (empty($name) || empty($email) || empty($phone)) {
+            echo json_encode(['success' => false, 'message' => 'Name, email, and phone are required.']);
+            exit;
+        }
+
+        // Check if password change is requested
+        if (!empty($current_password) && !empty($new_password)) {
+            $query = "SELECT password FROM users WHERE id = ?";
+            $stmt = $conn->prepare($query);
+            $stmt->bind_param("i", $user_id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $user = $result->fetch_assoc();
+            $stmt->close();
+
+            // Verify current password
+            if ($current_password!= $user['password']) {
+                echo json_encode(['success' => false, 'message' => 'Current password is incorrect.']);
+                exit;
+            }
+
+            
+
+            // Update password in the database
+            $query = "UPDATE users SET password = ? WHERE id = ?";
+            $stmt = $conn->prepare($query);
+            $stmt->bind_param("si", $new_password, $user_id);
+            $stmt->execute();
+            $stmt->close();
+        }
+
+        // Update other profile fields
+        $query = "UPDATE users SET name = ?, email = ?, mobile = ? WHERE id = ?";
+        $stmt = $conn->prepare($query);
+        $stmt->bind_param("sssi", $name, $email, $phone, $user_id);
+
+        if ($stmt->execute()) {
+            echo json_encode(['success' => true, 'message' => 'Profile updated successfully.']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to update profile.']);
+        }
+
+        $stmt->close();
+        exit;
+    }
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'get_scheme') {
