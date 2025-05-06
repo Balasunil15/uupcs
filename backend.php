@@ -135,6 +135,24 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action'])) {
         exit;
     }
 
+    if ($_POST['action'] === 'addTask') {
+        $description = $_POST['description'];
+        $schemeId = intval($_POST['schemeId']);
+        $engineerId = intval($_POST['engineerId']);
+        $status = 'ongoing'; // Set default status
+
+        // Insert the task
+        $query = "INSERT INTO tasks (scheme_id, engineer_id, description, status) VALUES (?, ?, ?, ?)";
+        $stmt = $conn->prepare($query);
+        $stmt->bind_param("iiss", $schemeId, $engineerId, $description, $status);
+
+        if ($stmt->execute()) {
+            echo json_encode(['success' => true]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Database error']);
+        }
+    }
+
     if ($_POST['action'] === 'add_inventory_item') {
         $name = $_POST['name'];
         $quantity = $_POST['quantity'];
@@ -394,3 +412,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['name'])) {
     exit;
 }
 ?>
+
