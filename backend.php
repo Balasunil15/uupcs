@@ -328,6 +328,24 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action'])) {
         exit;
     }
 
+    if ($_POST['action'] === 'update_resource_request_status') {
+        $request_id = intval($_POST['request_id'] ?? 0);
+        $status = $_POST['status'] ?? '';
+        if (!$request_id || !in_array($status, ['approved', 'rejected'])) {
+            echo json_encode(['success' => false, 'message' => 'Invalid request.']);
+            exit;
+        }
+        $stmt = $conn->prepare("UPDATE resource_requests SET status = ? WHERE id = ?");
+        $stmt->bind_param("si", $status, $request_id);
+        if ($stmt->execute()) {
+            echo json_encode(['success' => true, 'message' => "Request status updated to $status."]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to update request status.']);
+        }
+        $stmt->close();
+        exit;
+    }
+
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'get_scheme') {
