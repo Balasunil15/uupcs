@@ -50,6 +50,9 @@ while ($row = $approvedResResult->fetch_assoc()) {
     $approvedResources[] = $row;
 }
 $approvedResStmt->close();
+
+// Fetch approved resource requests for completed tab (reuse the same array)
+$completedApprovedResources = $approvedResources;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -185,7 +188,17 @@ $approvedResStmt->close();
                                 <tr>
                                     <td><?php echo htmlspecialchars($task['description']); ?></td>
                                     <td>
-                                        <!-- Optionally show resources used if you have that info -->
+                                        <?php if (!empty($completedApprovedResources)): ?>
+                                            <?php foreach ($completedApprovedResources as $res): ?>
+                                                <div>
+                                                    <span>
+                                                        <?php echo htmlspecialchars($res['type']); ?>: <?php echo htmlspecialchars($res['requested_quantity']); ?>
+                                                    </span>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        <?php else: ?>
+                                            <span class="text-muted">No approved resources</span>
+                                        <?php endif; ?>
                                     </td>
                                 </tr>
                             <?php endwhile; ?>
