@@ -311,6 +311,23 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action'])) {
         exit;
     }
 
+    if ($_POST['action'] === 'completeTask') {
+        $taskId = intval($_POST['taskId'] ?? 0);
+        if ($taskId <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Invalid task ID.']);
+            exit;
+        }
+        $stmt = $conn->prepare("UPDATE tasks SET status = 'completed' WHERE id = ?");
+        $stmt->bind_param("i", $taskId);
+        if ($stmt->execute()) {
+            echo json_encode(['success' => true]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to update task status.']);
+        }
+        $stmt->close();
+        exit;
+    }
+
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'get_scheme') {

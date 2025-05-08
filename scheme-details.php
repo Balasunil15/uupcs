@@ -31,6 +31,13 @@ $resourceStmt = $conn->prepare($resourcesQuery);
 $resourceStmt->bind_param("s", $_SESSION['department']);
 $resourceStmt->execute();
 $resources = $resourceStmt->get_result();
+
+// After fetching ongoing tasks
+$completedTasksQuery = "SELECT * FROM tasks WHERE scheme_id = ? AND engineer_id = ? AND status = 'completed'";
+$completedTaskStmt = $conn->prepare($completedTasksQuery);
+$completedTaskStmt->bind_param("ii", $schemeId, $_SESSION['user_id']);
+$completedTaskStmt->execute();
+$completedTasks = $completedTaskStmt->get_result();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -112,6 +119,8 @@ $resources = $resourceStmt->get_result();
                             <tr>
                                 <th>Description</th>
                                 <th>Action</th>
+                                <th>Resources available</th>
+                                <th>Change Status</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -123,6 +132,14 @@ $resources = $resourceStmt->get_result();
                                             Request Resources
                                         </button>
                                     </td>
+                                    <td>
+                                        <!-- Resources available (optional) -->
+                                    </td>
+                                    <td>
+                                            <button class="btn btn-success complete-task-btn" data-task-id="<?php echo $task['id']; ?>">
+                                                Complete
+                                            </button>
+                                    </td>
                                 </tr>
                             <?php endwhile; ?>
                         </tbody>
@@ -133,7 +150,28 @@ $resources = $resourceStmt->get_result();
             </div>
 
             <div class="tab-content" id="completed">
-                <p>Completed tasks for this scheme will be displayed here.</p>
+                <?php if ($completedTasks->num_rows > 0): ?>
+                    <table class="table" id="completedTasksTable">
+                        <thead>
+                            <tr>
+                                <th>Description</th>
+                                <th>Resources used</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php while ($task = $completedTasks->fetch_assoc()): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($task['description']); ?></td>
+                                    <td>
+                                        <!-- Optionally show resources used if you have that info -->
+                                    </td>
+                                </tr>
+                            <?php endwhile; ?>
+                        </tbody>
+                    </table>
+                <?php else: ?>
+                    <p>No completed tasks found.</p>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -258,6 +296,11 @@ $resources = $resourceStmt->get_result();
                 pageLength: 10,
                 lengthMenu: [[5, 10, 25, 50, -1], [5, 10, 25, 50, "All"]]
             });
+            $('#completedTasksTable').DataTable({
+                responsive: true,
+                pageLength: 10,
+                lengthMenu: [[5, 10, 25, 50, -1], [5, 10, 25, 50, "All"]]
+            });
         });
 
         // Add this before the closing script tag
@@ -294,6 +337,43 @@ $resources = $resourceStmt->get_result();
                 },
                 error: function() {
                     Swal.fire('Error', 'Error occurred while submitting request', 'error');
+                }
+            });
+        });
+
+        // Handle Complete Task button click
+        $(document).on('click', '.complete-task-btn', function() {
+            const taskId = $(this).data('task-id');
+            Swal.fire({
+                title: 'Are you sure?',
+                text: "Mark this task as completed?",
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, complete it!',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: 'backend.php',
+                        type: 'POST',
+                        data: {
+                            action: 'completeTask',
+                            taskId: taskId
+                        },
+                        success: function(response) {
+                            const result = JSON.parse(response);
+                            if (result.success) {
+                                Swal.fire('Success', 'Task marked as completed.', 'success').then(() => {
+                                    location.reload();
+                                });
+                            } else {
+                                Swal.fire('Error', result.message || 'Could not complete task.', 'error');
+                            }
+                        },
+                        error: function() {
+                            Swal.fire('Error', 'Error occurred while updating task.', 'error');
+                        }
+                    });
                 }
             });
         });
