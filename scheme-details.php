@@ -38,6 +38,18 @@ $completedTaskStmt = $conn->prepare($completedTasksQuery);
 $completedTaskStmt->bind_param("ii", $schemeId, $_SESSION['user_id']);
 $completedTaskStmt->execute();
 $completedTasks = $completedTaskStmt->get_result();
+
+// Fetch approved resource requests for this scheme
+$approvedResources = [];
+$approvedResQuery = "SELECT type, requested_quantity FROM resource_requests WHERE scheme_id = ? AND status = 'approved'";
+$approvedResStmt = $conn->prepare($approvedResQuery);
+$approvedResStmt->bind_param("i", $schemeId);
+$approvedResStmt->execute();
+$approvedResResult = $approvedResStmt->get_result();
+while ($row = $approvedResResult->fetch_assoc()) {
+    $approvedResources[] = $row;
+}
+$approvedResStmt->close();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -133,7 +145,17 @@ $completedTasks = $completedTaskStmt->get_result();
                                         </button>
                                     </td>
                                     <td>
-                                        <!-- Resources available (optional) -->
+                                        <?php if (!empty($approvedResources)): ?>
+                                            <?php foreach ($approvedResources as $res): ?>
+                                                <div>
+                                                    <span >
+                                                        <?php echo htmlspecialchars($res['type']); ?>: <?php echo htmlspecialchars($res['requested_quantity']); ?>
+                                                    </span>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        <?php else: ?>
+                                            <span class="text-muted">No approved resources</span>
+                                        <?php endif; ?>
                                     </td>
                                     <td>
                                             <button class="btn btn-success complete-task-btn" data-task-id="<?php echo $task['id']; ?>">
@@ -315,6 +337,8 @@ $completedTasks = $completedTaskStmt->get_result();
             const taskId = $('#taskId').val();
             const resourceId = $('#resourceType').val();
             const quantity = $('#quantity').val();
+            // Pass schemeId as a hidden field or directly from PHP
+            const schemeId = <?php echo (int)$schemeId; ?>;
 
             $.ajax({
                 url: 'backend.php',
@@ -323,7 +347,8 @@ $completedTasks = $completedTaskStmt->get_result();
                     action: 'requestResources',
                     taskId: taskId,
                     resourceId: resourceId,
-                    quantity: quantity
+                    quantity: quantity,
+                    schemeId: schemeId // Ensure schemeId is sent
                 },
                 success: function(response) {
                     const result = JSON.parse(response);
