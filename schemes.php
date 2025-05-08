@@ -86,6 +86,12 @@ $stmt->close();
             <span class="nav-item">Inventory</span>
           </a>
         </li>
+        <li>
+          <a href="requests.php">
+            <i class="fas fa-envelope-open-text"></i>
+            <span class="nav-item">Requests</span>
+          </a>
+        </li>
       </ul>
     </nav>
   </div>
