@@ -24,6 +24,13 @@ $taskStmt = $conn->prepare($tasksQuery);
 $taskStmt->bind_param("ii", $schemeId, $_SESSION['user_id']);
 $taskStmt->execute();
 $tasks = $taskStmt->get_result();
+
+// Add this after existing queries
+$resourcesQuery = "SELECT id, name FROM resources WHERE department = ?";
+$resourceStmt = $conn->prepare($resourcesQuery);
+$resourceStmt->bind_param("s", $_SESSION['department']);
+$resourceStmt->execute();
+$resources = $resourceStmt->get_result();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -40,6 +47,7 @@ $tasks = $taskStmt->get_result();
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 
 <body>
@@ -151,6 +159,37 @@ $tasks = $taskStmt->get_result();
         </div>
     </div>
 
+    <!-- Request Resources Modal -->
+    <div class="modal fade" id="requestResourcesModal" tabindex="-1" aria-labelledby="requestResourcesModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="requestResourcesModalLabel">Request Resources</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="requestResourcesForm">
+                        <input type="hidden" id="taskId" name="taskId">
+                        <div class="mb-3">
+                            <label for="resourceType" class="form-label">Resource Type</label>
+                            <select class="form-select" id="resourceType" required>
+                                <option value="">Select Resource</option>
+                                <?php while($resource = $resources->fetch_assoc()): ?>
+                                    <option value="<?php echo $resource['id']; ?>"><?php echo htmlspecialchars($resource['name']); ?></option>
+                                <?php endwhile; ?>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="quantity" class="form-label">Quantity</label>
+                            <input type="number" class="form-control" id="quantity" min="1" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Submit Request</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         const toggle = document.querySelector(".toggle");
         const sidebar = document.querySelector(".sidebar");
@@ -181,7 +220,7 @@ $tasks = $taskStmt->get_result();
             const taskDescription = document.getElementById("taskDescription").value;
 
             if (taskDescription.trim() === "") {
-                alert("Task description cannot be empty.");
+                Swal.fire('Error', 'Task description cannot be empty.', 'error');
                 return;
             }
 
@@ -197,17 +236,17 @@ $tasks = $taskStmt->get_result();
                 success: function(response) {
                     const result = JSON.parse(response);
                     if (result.success) {
-                        alert('Task added successfully');
+                        Swal.fire('Success', 'Task added successfully', 'success');
                         document.getElementById("addTaskForm").reset();
                         const addTaskModal = bootstrap.Modal.getInstance(document.getElementById("addTaskModal"));
                         addTaskModal.hide();
                         // Optionally reload the tasks list here
                     } else {
-                        alert('Error: ' + result.message);
+                        Swal.fire('Error', result.message || 'Error occurred', 'error');
                     }
                 },
                 error: function() {
-                    alert('Error occurred while adding task');
+                    Swal.fire('Error', 'Error occurred while adding task', 'error');
                 }
             });
         });
@@ -218,6 +257,44 @@ $tasks = $taskStmt->get_result();
                 responsive: true,
                 pageLength: 10,
                 lengthMenu: [[5, 10, 25, 50, -1], [5, 10, 25, 50, "All"]]
+            });
+        });
+
+        // Add this before the closing script tag
+        $(document).on('click', '.request-resources', function() {
+            const taskId = $(this).data('task-id');
+            $('#taskId').val(taskId);
+            $('#requestResourcesModal').modal('show');
+        });
+
+        $('#requestResourcesForm').on('submit', function(e) {
+            e.preventDefault();
+            const taskId = $('#taskId').val();
+            const resourceId = $('#resourceType').val();
+            const quantity = $('#quantity').val();
+
+            $.ajax({
+                url: 'backend.php',
+                type: 'POST',
+                data: {
+                    action: 'requestResources',
+                    taskId: taskId,
+                    resourceId: resourceId,
+                    quantity: quantity
+                },
+                success: function(response) {
+                    const result = JSON.parse(response);
+                    if (result.success) {
+                        Swal.fire('Success', 'Resource request submitted successfully', 'success');
+                        $('#requestResourcesModal').modal('hide');
+                        $('#requestResourcesForm')[0].reset();
+                    } else {
+                        Swal.fire('Error', result.message || 'Error occurred', 'error');
+                    }
+                },
+                error: function() {
+                    Swal.fire('Error', 'Error occurred while submitting request', 'error');
+                }
             });
         });
     </script>

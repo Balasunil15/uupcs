@@ -269,6 +269,48 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action'])) {
         $stmt->close();
         exit;
     }
+
+    if ($_POST['action'] === 'requestResources') {
+        $resourceId = $_POST['resourceId'] ?? null;
+        $quantity = $_POST['quantity'] ?? null;
+        $taskId = $_POST['taskId'] ?? null;
+        $engineerId = $_SESSION['user_id'] ?? null;
+        $schemeId = $_POST['schemeId'] ?? null;
+
+        // Validate input
+        if (!$resourceId || !$quantity || !$engineerId) {
+            echo json_encode(['success' => false, 'message' => 'Missing required fields.']);
+            exit;
+        }
+
+        // Fetch resource name for the type field
+        $type = '';
+        $stmt = $conn->prepare("SELECT name FROM resources WHERE id = ?");
+        $stmt->bind_param("i", $resourceId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        if ($row = $result->fetch_assoc()) {
+            $type = $row['name'];
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Resource not found.']);
+            exit;
+        }
+        $stmt->close();
+
+        // Insert into resource_requests table
+        $status = 'pending';
+        $insert = $conn->prepare("INSERT INTO resource_requests (type, requested_quantity, engineer_id, scheme_id, status) VALUES (?, ?, ?, ?, ?)");
+        $insert->bind_param("siiis", $type, $quantity, $engineerId, $schemeId, $status);
+
+        if ($insert->execute()) {
+            echo json_encode(['success' => true]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to submit resource request.']);
+        }
+        $insert->close();
+        exit;
+    }
+
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'get_scheme') {
