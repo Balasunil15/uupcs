@@ -39,20 +39,7 @@ $completedTaskStmt->bind_param("ii", $schemeId, $_SESSION['user_id']);
 $completedTaskStmt->execute();
 $completedTasks = $completedTaskStmt->get_result();
 
-// Fetch approved resource requests for this scheme
-$approvedResources = [];
-$approvedResQuery = "SELECT type, requested_quantity FROM resource_requests WHERE scheme_id = ? AND status = 'approved'";
-$approvedResStmt = $conn->prepare($approvedResQuery);
-$approvedResStmt->bind_param("i", $schemeId);
-$approvedResStmt->execute();
-$approvedResResult = $approvedResStmt->get_result();
-while ($row = $approvedResResult->fetch_assoc()) {
-    $approvedResources[] = $row;
-}
-$approvedResStmt->close();
 
-// Fetch approved resource requests for completed tab (reuse the same array)
-$completedApprovedResources = $approvedResources;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -104,14 +91,14 @@ $completedApprovedResources = $approvedResources;
 
     <div class="main-content">
         <header>
-            
-                <div class="toggle">
-                    <i class="fas fa-bars menu-icon"></i>
-                </div>
-                <marquee>
-                    <h1>SCHEME : <?php echo htmlspecialchars($scheme['title']); ?></h1>
-                </marquee>
-            
+
+            <div class="toggle">
+                <i class="fas fa-bars menu-icon"></i>
+            </div>
+            <marquee>
+                <h1>SCHEME : <?php echo htmlspecialchars($scheme['title']); ?></h1>
+            </marquee>
+
         </header>
 
         <div class="tasks-container">
@@ -143,16 +130,30 @@ $completedApprovedResources = $approvedResources;
                                 <tr>
                                     <td><?php echo htmlspecialchars($task['description']); ?></td>
                                     <td>
-                                        <button class="btn btn-primary request-resources" data-task-id="<?php echo $task['id']; ?>">
+                                        <button class="btn btn-primary request-resources"
+                                            data-task-id="<?php echo $task['id']; ?>">
                                             Request Resources
                                         </button>
                                     </td>
                                     <td>
+                                        <?php $approvedResources = [];
+                                        $approvedResQuery = "SELECT type, requested_quantity FROM resource_requests WHERE
+                                        scheme_id = ? AND status = 'approved' AND taskid = ?";
+                                        $approvedResStmt = $conn->prepare($approvedResQuery);
+                                        $approvedResStmt->bind_param("ii", $schemeId, $task['id']);
+                                        $approvedResStmt->execute();
+                                        $approvedResResult = $approvedResStmt->get_result();
+                                        while ($row = $approvedResResult->fetch_assoc()) {
+                                        $approvedResources[] = $row;
+                                        }
+                                        $approvedResStmt->close();
+                                        ?>
                                         <?php if (!empty($approvedResources)): ?>
                                             <?php foreach ($approvedResources as $res): ?>
                                                 <div>
-                                                    <span >
-                                                        <?php echo htmlspecialchars($res['type']); ?>: <?php echo htmlspecialchars($res['requested_quantity']); ?>
+                                                    <span>
+                                                        <?php echo htmlspecialchars($res['type']); ?>:
+                                                        <?php echo htmlspecialchars($res['requested_quantity']); ?>
                                                     </span>
                                                 </div>
                                             <?php endforeach; ?>
@@ -161,9 +162,10 @@ $completedApprovedResources = $approvedResources;
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                            <button class="btn btn-success complete-task-btn" data-task-id="<?php echo $task['id']; ?>">
-                                                Complete
-                                            </button>
+                                        <button class="btn btn-success complete-task-btn"
+                                            data-task-id="<?php echo $task['id']; ?>">
+                                            Complete
+                                        </button>
                                     </td>
                                 </tr>
                             <?php endwhile; ?>
@@ -187,12 +189,24 @@ $completedApprovedResources = $approvedResources;
                             <?php while ($task = $completedTasks->fetch_assoc()): ?>
                                 <tr>
                                     <td><?php echo htmlspecialchars($task['description']); ?></td>
-                                    <td>
-                                        <?php if (!empty($completedApprovedResources)): ?>
-                                            <?php foreach ($completedApprovedResources as $res): ?>
+                                    <td><?php $approvedResources = [];
+                                        $approvedResQuery = "SELECT type, requested_quantity FROM resource_requests WHERE
+                                        scheme_id = ? AND status = 'approved' AND taskid = ?";
+                                        $approvedResStmt = $conn->prepare($approvedResQuery);
+                                        $approvedResStmt->bind_param("ii", $schemeId, $task['id']);
+                                        $approvedResStmt->execute();
+                                        $approvedResResult = $approvedResStmt->get_result();
+                                        while ($row = $approvedResResult->fetch_assoc()) {
+                                        $approvedResources[] = $row;
+                                        }
+                                        $approvedResStmt->close();
+                                        ?>
+                                        <?php if (!empty($approvedResources)): ?>
+                                            <?php foreach ($approvedResources as $res): ?>
                                                 <div>
                                                     <span>
-                                                        <?php echo htmlspecialchars($res['type']); ?>: <?php echo htmlspecialchars($res['requested_quantity']); ?>
+                                                        <?php echo htmlspecialchars($res['type']); ?>:
+                                                        <?php echo htmlspecialchars($res['requested_quantity']); ?>
                                                     </span>
                                                 </div>
                                             <?php endforeach; ?>
@@ -223,7 +237,8 @@ $completedApprovedResources = $approvedResources;
                     <form id="addTaskForm">
                         <div class="mb-3">
                             <label for="taskDescription" class="form-label">Task Description</label>
-                            <textarea class="form-control" id="taskDescription" rows="3" placeholder="Enter task description" required></textarea>
+                            <textarea class="form-control" id="taskDescription" rows="3"
+                                placeholder="Enter task description" required></textarea>
                         </div>
                         <button type="submit" class="btn btn-primary">Add Task</button>
                     </form>
@@ -233,7 +248,8 @@ $completedApprovedResources = $approvedResources;
     </div>
 
     <!-- Request Resources Modal -->
-    <div class="modal fade" id="requestResourcesModal" tabindex="-1" aria-labelledby="requestResourcesModalLabel" aria-hidden="true">
+    <div class="modal fade" id="requestResourcesModal" tabindex="-1" aria-labelledby="requestResourcesModalLabel"
+        aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
@@ -247,8 +263,9 @@ $completedApprovedResources = $approvedResources;
                             <label for="resourceType" class="form-label">Resource Type</label>
                             <select class="form-select" id="resourceType" required>
                                 <option value="">Select Resource</option>
-                                <?php while($resource = $resources->fetch_assoc()): ?>
-                                    <option value="<?php echo $resource['id']; ?>"><?php echo htmlspecialchars($resource['name']); ?></option>
+                                <?php while ($resource = $resources->fetch_assoc()): ?>
+                                    <option value="<?php echo $resource['id']; ?>">
+                                        <?php echo htmlspecialchars($resource['name']); ?></option>
                                 <?php endwhile; ?>
                             </select>
                         </div>
@@ -306,7 +323,7 @@ $completedApprovedResources = $approvedResources;
                     schemeId: <?php echo $schemeId; ?>,
                     engineerId: <?php echo $_SESSION['user_id']; ?>
                 },
-                success: function(response) {
+                success: function (response) {
                     const result = JSON.parse(response);
                     if (result.success) {
                         Swal.fire('Success', 'Task added successfully', 'success');
@@ -318,14 +335,14 @@ $completedApprovedResources = $approvedResources;
                         Swal.fire('Error', result.message || 'Error occurred', 'error');
                     }
                 },
-                error: function() {
+                error: function () {
                     Swal.fire('Error', 'Error occurred while adding task', 'error');
                 }
             });
         });
 
         // Initialize DataTable
-        $(document).ready(function() {
+        $(document).ready(function () {
             $('#tasksTable').DataTable({
                 responsive: true,
                 pageLength: 10,
@@ -339,19 +356,19 @@ $completedApprovedResources = $approvedResources;
         });
 
         // Add this before the closing script tag
-        $(document).on('click', '.request-resources', function() {
+        $(document).on('click', '.request-resources', function () {
             const taskId = $(this).data('task-id');
             $('#taskId').val(taskId);
             $('#requestResourcesModal').modal('show');
         });
 
-        $('#requestResourcesForm').on('submit', function(e) {
+        $('#requestResourcesForm').on('submit', function (e) {
             e.preventDefault();
             const taskId = $('#taskId').val();
             const resourceId = $('#resourceType').val();
             const quantity = $('#quantity').val();
             // Pass schemeId as a hidden field or directly from PHP
-            const schemeId = <?php echo (int)$schemeId; ?>;
+            const schemeId = <?php echo (int) $schemeId; ?>;
 
             $.ajax({
                 url: 'backend.php',
@@ -363,7 +380,7 @@ $completedApprovedResources = $approvedResources;
                     quantity: quantity,
                     schemeId: schemeId // Ensure schemeId is sent
                 },
-                success: function(response) {
+                success: function (response) {
                     const result = JSON.parse(response);
                     if (result.success) {
                         Swal.fire('Success', 'Resource request submitted successfully', 'success');
@@ -373,14 +390,14 @@ $completedApprovedResources = $approvedResources;
                         Swal.fire('Error', result.message || 'Error occurred', 'error');
                     }
                 },
-                error: function() {
+                error: function () {
                     Swal.fire('Error', 'Error occurred while submitting request', 'error');
                 }
             });
         });
 
         // Handle Complete Task button click
-        $(document).on('click', '.complete-task-btn', function() {
+        $(document).on('click', '.complete-task-btn', function () {
             const taskId = $(this).data('task-id');
             Swal.fire({
                 title: 'Are you sure?',
@@ -398,7 +415,7 @@ $completedApprovedResources = $approvedResources;
                             action: 'completeTask',
                             taskId: taskId
                         },
-                        success: function(response) {
+                        success: function (response) {
                             const result = JSON.parse(response);
                             if (result.success) {
                                 Swal.fire('Success', 'Task marked as completed.', 'success').then(() => {
@@ -408,7 +425,7 @@ $completedApprovedResources = $approvedResources;
                                 Swal.fire('Error', result.message || 'Could not complete task.', 'error');
                             }
                         },
-                        error: function() {
+                        error: function () {
                             Swal.fire('Error', 'Error occurred while updating task.', 'error');
                         }
                     });

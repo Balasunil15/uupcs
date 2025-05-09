@@ -299,8 +299,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action'])) {
 
         // Insert into resource_requests table
         $status = 'pending';
-        $insert = $conn->prepare("INSERT INTO resource_requests (type, requested_quantity, engineer_id, scheme_id, status) VALUES (?, ?, ?, ?, ?)");
-        $insert->bind_param("siiis", $type, $quantity, $engineerId, $schemeId, $status);
+        $insert = $conn->prepare("INSERT INTO resource_requests (type, taskid, requested_quantity, engineer_id, scheme_id, status) VALUES (?, ?, ?, ?, ?)");
+        $insert->bind_param("siiiis", $type, $taskId, $quantity, $engineerId, $schemeId, $status);
 
         if ($insert->execute()) {
             echo json_encode(['success' => true]);
