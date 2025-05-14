@@ -114,12 +114,7 @@ if ($collaborationId) {
         </div>
         <nav>
             <ul>
-                <li>
-                    <a href="engineer-dashboard.php">
-                        <i class="fas fa-chart-bar"></i>
-                        <span class="nav-item">Dashboard</span>
-                    </a>
-                </li>
+                
                 <li>
                     <a href="engineer-profile.php">
                         <i class="fas fa-user-circle"></i>

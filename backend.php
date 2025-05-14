@@ -431,6 +431,34 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action'])) {
         exit;
     }
 
+    // Accept/Reject collaboration request
+    if (isset($_POST['action']) && $_POST['action'] === 'collab_update_status') {
+        $collab_id = intval($_POST['collab_id'] ?? 0);
+        $status = $_POST['status'] === 'approved' ? 'approved' : 'rejected';
+
+        $stmt = $conn->prepare("UPDATE collaborations SET status = ?, updated_at = NOW() WHERE id = ?");
+        $stmt->bind_param('si', $status, $collab_id);
+
+        if ($stmt->execute()) {
+            echo json_encode([
+                'success' => true,
+                'message' => $status === 'approved' ? 'Collaboration request accepted!' : 'Collaboration request rejected!',
+                'swal' => [
+                    'icon' => $status === 'approved' ? 'success' : 'info',
+                    'title' => $status === 'approved' ? 'Accepted!' : 'Rejected!',
+                    'text' => $status === 'approved' ? 'The collaboration request has been approved.' : 'The collaboration request has been rejected.'
+                ]
+            ]);
+        } else {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Failed to update collaboration status.'
+            ]);
+        }
+        $stmt->close();
+        exit;
+    }
+
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'get_scheme') {

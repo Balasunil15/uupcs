@@ -73,6 +73,26 @@ while ($current_scheme = $ongoing_result->fetch_assoc()) {
     $overlap_stmt->close();
 }
 $ongoing_stmt->close();
+
+// Fetch collaboration requests for this CEO
+$collab_requests = [];
+$my_ceo_id = $_SESSION['user_id'];
+$collab_req_query = "SELECT c.id, c.scheme1_id, c.scheme2_id, c.initiator_ceo_id, c.receiver_ceo_id, c.status, 
+    s1.title AS scheme1_title, s2.title AS scheme2_title,
+    s1.department AS scheme1_department, s2.department AS scheme2_department
+    FROM collaborations c
+    JOIN schemes s1 ON c.scheme1_id = s1.id
+    JOIN schemes s2 ON c.scheme2_id = s2.id
+    WHERE c.receiver_ceo_id = ? AND c.status = 'requested'";
+$collab_req_stmt = $conn->prepare($collab_req_query);
+$collab_req_stmt->bind_param('i', $my_ceo_id);
+$collab_req_stmt->execute();
+$collab_req_result = $collab_req_stmt->get_result();
+while ($row = $collab_req_result->fetch_assoc()) {
+    $collab_requests[] = $row;
+}
+$collab_req_stmt->close();
+error_log("Collab requests count: " . count($collab_requests)); // Debug line
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -228,9 +248,26 @@ $ongoing_stmt->close();
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body text-danger">
-                    <?php if (empty($overlap_alerts)): ?>
-                        <p>No overlapping schemes found.</p>
-                    <?php else: ?>
+                    <?php if (!empty($collab_requests)): ?>
+                        <div class="mb-4">
+                            <h6>Collaboration Requests</h6>
+                            <?php foreach ($collab_requests as $req): ?>
+                                <div class="border p-2 mb-2">
+                                    <p>
+                                        <strong>From:</strong> <?php echo htmlspecialchars($req['scheme1_department']); ?> <br>
+                                        <strong>Scheme:</strong> <?php echo htmlspecialchars($req['scheme1_title']); ?> <br>
+                                        <strong>With your scheme:</strong> <?php echo htmlspecialchars($req['scheme2_title']); ?>
+                                    </p>
+                                    <button class="btn btn-success btn-sm collab-action-btn" data-collab-id="<?php echo $req['id']; ?>" data-action="approved">Accept</button>
+                                    <button class="btn btn-danger btn-sm collab-action-btn" data-collab-id="<?php echo $req['id']; ?>" data-action="rejected">Reject</button>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                    <?php if (empty($overlap_alerts) && empty($collab_requests)): ?>
+                        <p>No overlapping schemes or collaboration requests found.</p>
+                    <?php endif; ?>
+                    <?php if (!empty($overlap_alerts)): ?>
                         <?php foreach ($overlap_alerts as $alert): ?>
                             <div class="mb-4 border-bottom pb-3">
                                 <h6>Your Department's Scheme:</h6>
@@ -384,6 +421,44 @@ $ongoing_stmt->close();
                 },
                 error: function () {
                     btn.prop('disabled', false).text('Collaborate');
+                    alert('An error occurred. Please try again.');
+                }
+            });
+        });
+
+        // Accept/Reject collaboration request
+        $(document).on('click', '.collab-action-btn', function () {
+            var collabId = $(this).data('collab-id');
+            var action = $(this).data('action');
+            var btn = $(this);
+            btn.prop('disabled', true);
+
+            $.ajax({
+                url: 'backend.php',
+                type: 'POST',
+                data: {
+                    action: 'collab_update_status',
+                    collab_id: collabId,
+                    status: action
+                },
+                dataType: 'json',
+                success: function (response) {
+                    if (response.success) {
+                        btn.closest('.border').fadeOut();
+                        if (response.swal) {
+                            Swal.fire({
+                                icon: response.swal.icon,
+                                title: response.swal.title,
+                                text: response.swal.text
+                            });
+                        }
+                    } else {
+                        btn.prop('disabled', false);
+                        alert(response.message || 'Failed to update collaboration status.');
+                    }
+                },
+                error: function () {
+                    btn.prop('disabled', false);
                     alert('An error occurred. Please try again.');
                 }
             });

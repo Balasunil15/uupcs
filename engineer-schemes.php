@@ -215,18 +215,9 @@ if (empty($_SESSION['user_id'])) {
             $collabStmt->execute();
             $collabResult = $collabStmt->get_result();
             while ($row = $collabResult->fetch_assoc()) {
+                // Show the scheme that the engineer is collaborating WITH, not their own
                 if ($row['assigned_engineer_id_1'] == $engineerId) {
-                    $collaboratedSchemes[] = [
-                        'collaboration_id' => $row['collaboration_id'],
-                        'id' => $row['id_1'],
-                        'title' => $row['title_1'],
-                        'description' => $row['description_1'],
-                        'deadline' => $row['deadline_1'],
-                        'department' => $row['department_1'],
-                        'collab_with' => $row['region_2'],
-                        'budget' => $row['budget_1'],
-                    ];
-                } else {
+                    // Engineer owns s1, show s2 as the collaborated scheme
                     $collaboratedSchemes[] = [
                         'collaboration_id' => $row['collaboration_id'],
                         'id' => $row['id_2'],
@@ -236,6 +227,18 @@ if (empty($_SESSION['user_id'])) {
                         'department' => $row['department_2'],
                         'collab_with' => $row['region_1'],
                         'budget' => $row['budget_2'],
+                    ];
+                } else {
+                    // Engineer owns s2, show s1 as the collaborated scheme
+                    $collaboratedSchemes[] = [
+                        'collaboration_id' => $row['collaboration_id'],
+                        'id' => $row['id_1'],
+                        'title' => $row['title_1'],
+                        'description' => $row['description_1'],
+                        'deadline' => $row['deadline_1'],
+                        'department' => $row['department_1'],
+                        'collab_with' => $row['region_2'],
+                        'budget' => $row['budget_1'],
                     ];
                 }
             }
