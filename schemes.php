@@ -33,6 +33,45 @@ while ($row = $result->fetch_assoc()) {
   $completedSchemes[] = $row;
 }
 $stmt->close();
+
+// Fetch collaborated schemes for the session department
+$collaboratedSchemes = [];
+$collabQuery = "SELECT c.id AS collaboration_id, c.status, s1.*, s2.*
+    FROM collaborations c
+    JOIN schemes s1 ON c.scheme1_id = s1.id
+    JOIN schemes s2 ON c.scheme2_id = s2.id
+    WHERE c.status = 'approved' AND (s1.department = ? OR s2.department = ?)
+";
+$collabStmt = $conn->prepare($collabQuery);
+$collabStmt->bind_param('ss', $department, $department);
+$collabStmt->execute();
+$collabResult = $collabStmt->get_result();
+while ($row = $collabResult->fetch_assoc()) {
+    // For each collaboration, add both schemes if not already in the department's own list
+    if ($row['department'] === $department) {
+        $collaboratedSchemes[] = [
+            'collaboration_id' => $row['collaboration_id'],
+            'id' => $row['id'],
+            'title' => $row['title'],
+            'budget' => $row['budget'],
+            'deadline' => $row['deadline'],
+            'department' => $row['department'],
+            'collab_with' => $row['region'], // or other field to indicate partner
+        ];
+    } else {
+        // Add the other department's scheme as well
+        $collaboratedSchemes[] = [
+            'collaboration_id' => $row['collaboration_id'],
+            'id' => $row['id_1'],
+            'title' => $row['title_1'],
+            'budget' => $row['budget_1'],
+            'deadline' => $row['deadline_1'],
+            'department' => $row['department_1'],
+            'collab_with' => $row['region_1'],
+        ];
+    }
+}
+$collabStmt->close();
 ?>
 
 <!DOCTYPE html>
@@ -195,6 +234,39 @@ $stmt->close();
           </table>
         </div>
       </div>
+
+      <div class="tab-content" id="collaborated">
+        <div class="schemes-table">
+          <table id="collaboratedTable" class="table table-striped">
+            <thead>
+              <tr>
+                <th>SID</th>
+                <th>Scheme Title</th>
+                <th>Budget</th>
+                <th>Deadline</th>
+                <th>Collaboration With</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php foreach ($collaboratedSchemes as $index => $scheme): ?>
+                <tr>
+                  <td><?php echo $index + 1; ?></td>
+                  <td><?php echo htmlspecialchars($scheme['title']); ?></td>
+                  <td>₹<?php echo htmlspecialchars(number_format($scheme['budget'])); ?></td>
+                  <td><?php echo htmlspecialchars($scheme['deadline']); ?></td>
+                  <td><?php echo htmlspecialchars($scheme['collab_with']); ?></td>
+                  <td>
+                    <button class="btn btn-primary" data-scheme-id="<?php echo $scheme['id']; ?>" data-collaboration-id="<?php echo $scheme['collaboration_id']; ?>" data-bs-toggle="modal" data-bs-target="#schemeModal">
+                      <i class="fas fa-eye"></i> View
+                    </button>
+                  </td>
+                </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -276,10 +348,11 @@ $stmt->close();
       $(document).ready(function () {
         $('#ongoingTable').DataTable();
         $('#completedTable').DataTable();
+        $('#collaboratedTable').DataTable();
       });
 
       $(document).ready(function () {
-        $('#ongoingTable, #completedTable').on('click', '.btn-primary', function () {
+        $('#ongoingTable, #completedTable, #collaboratedTable').on('click', '.btn-primary', function () {
           const schemeId = $(this).data('scheme-id');
 
           $.ajax({

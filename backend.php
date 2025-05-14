@@ -37,7 +37,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action'])) {
                 $_SESSION['photo'] = $user['photo'];
                 $_SESSION['details'] = $user['details'];
 
-                $redirect = (strtolower($user['role']) === 'ceo') ? 'dashboard.php' : 'engineer-dashboard.php';
+                $redirect = (strtolower($user['role']) === 'ceo') ? 'dashboard.php' : 'engineer-profile.php';
             } else {
                 $redirect = 'login.php?error=1'; // Incorrect password
             }
@@ -139,18 +139,34 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action'])) {
         $description = $_POST['description'];
         $schemeId = intval($_POST['schemeId']);
         $engineerId = intval($_POST['engineerId']);
-        $status = 'ongoing'; // Set default status
+        $collaborationId = isset($_POST['collaboration_id']) ? intval($_POST['collaboration_id']) : 0;
+        $status = 'ongoing';
 
-        // Insert the task
-        $query = "INSERT INTO tasks (scheme_id, engineer_id, description, status) VALUES (?, ?, ?, ?)";
-        $stmt = $conn->prepare($query);
-        $stmt->bind_param("iiss", $schemeId, $engineerId, $description, $status);
-
+        // Permission check: if collaboration_id is set, engineer must be assigned to either scheme in the collaboration
+        if ($collaborationId) {
+            $check = $conn->prepare("SELECT c.id, s1.assigned_engineer_id, s2.assigned_engineer_id FROM collaborations c JOIN schemes s1 ON c.scheme1_id = s1.id JOIN schemes s2 ON c.scheme2_id = s2.id WHERE c.id = ? AND c.status = 'approved'");
+            $check->bind_param('i', $collaborationId);
+            $check->execute();
+            $res = $check->get_result();
+            $row = $res->fetch_assoc();
+            if (!$row || ($row['assigned_engineer_id'] != $engineerId && $row['assigned_engineer_id_1'] != $engineerId)) {
+                echo json_encode(['success' => false, 'message' => 'Permission denied.']);
+                exit;
+            }
+            $query = "INSERT INTO tasks (scheme_id, engineer_id, description, status, collaboration_id) VALUES (?, ?, ?, ?, ?)";
+            $stmt = $conn->prepare($query);
+            $stmt->bind_param("iissi", $schemeId, $engineerId, $description, $status, $collaborationId);
+        } else {
+            $query = "INSERT INTO tasks (scheme_id, engineer_id, description, status) VALUES (?, ?, ?, ?)";
+            $stmt = $conn->prepare($query);
+            $stmt->bind_param("iiss", $schemeId, $engineerId, $description, $status);
+        }
         if ($stmt->execute()) {
             echo json_encode(['success' => true]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Database error']);
         }
+        exit;
     }
 
     if ($_POST['action'] === 'add_inventory_item') {
@@ -276,6 +292,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action'])) {
         $taskId = $_POST['taskId'] ?? null;
         $engineerId = $_SESSION['user_id'] ?? null;
         $schemeId = $_POST['schemeId'] ?? null;
+        $collaborationId = isset($_POST['collaboration_id']) ? intval($_POST['collaboration_id']) : 0;
 
         // Validate input
         if (!$resourceId || !$quantity || !$engineerId) {
@@ -299,8 +316,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action'])) {
 
         // Insert into resource_requests table
         $status = 'pending';
-        $insert = $conn->prepare("INSERT INTO resource_requests (type, taskid, requested_quantity, engineer_id, scheme_id, status) VALUES (?, ?, ?, ?, ?)");
-        $insert->bind_param("siiiis", $type, $taskId, $quantity, $engineerId, $schemeId, $status);
+        if ($collaborationId) {
+            $insert = $conn->prepare("INSERT INTO resource_requests (type, taskid, requested_quantity, engineer_id, scheme_id, status, collaboration_id) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $insert->bind_param("siiiisi", $type, $taskId, $quantity, $engineerId, $schemeId, $status, $collaborationId);
+        } else {
+            $insert = $conn->prepare("INSERT INTO resource_requests (type, taskid, requested_quantity, engineer_id, scheme_id, status) VALUES (?, ?, ?, ?, ?, ?)");
+            $insert->bind_param("siiiis", $type, $taskId, $quantity, $engineerId, $schemeId, $status);
+        }
 
         if ($insert->execute()) {
             echo json_encode(['success' => true]);
@@ -313,9 +335,17 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action'])) {
 
     if ($_POST['action'] === 'completeTask') {
         $taskId = intval($_POST['taskId'] ?? 0);
-        if ($taskId <= 0) {
-            echo json_encode(['success' => false, 'message' => 'Invalid task ID.']);
-            exit;
+        $collaborationId = isset($_POST['collaboration_id']) ? intval($_POST['collaboration_id']) : 0;
+        // Permission check: if collaboration_id is set, engineer must be assigned to either scheme in the collaboration
+        if ($collaborationId) {
+            $check = $conn->prepare("SELECT t.id, t.engineer_id, t.collaboration_id, c.scheme1_id, c.scheme2_id, s1.assigned_engineer_id, s2.assigned_engineer_id FROM tasks t JOIN collaborations c ON t.collaboration_id = c.id JOIN schemes s1 ON c.scheme1_id = s1.id JOIN schemes s2 ON c.scheme2_id = s2.id WHERE t.id = ? AND t.collaboration_id = ? AND (s1.assigned_engineer_id = ? OR s2.assigned_engineer_id = ?)");
+            $check->bind_param('iiii', $taskId, $collaborationId, $engineerId, $engineerId);
+            $check->execute();
+            $res = $check->get_result();
+            if ($res->num_rows === 0) {
+                echo json_encode(['success' => false, 'message' => 'Permission denied.']);
+                exit;
+            }
         }
         $stmt = $conn->prepare("UPDATE tasks SET status = 'completed' WHERE id = ?");
         $stmt->bind_param("i", $taskId);
@@ -331,9 +361,19 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action'])) {
     if ($_POST['action'] === 'update_resource_request_status') {
         $request_id = intval($_POST['request_id'] ?? 0);
         $status = $_POST['status'] ?? '';
-        if (!$request_id || !in_array($status, ['approved', 'rejected'])) {
-            echo json_encode(['success' => false, 'message' => 'Invalid request.']);
-            exit;
+        $collaborationId = isset($_POST['collaboration_id']) ? intval($_POST['collaboration_id']) : 0;
+        // Permission check: if collaboration_id is set, CEO must be from either department in the collaboration
+        if ($collaborationId) {
+            $ceoId = $_SESSION['user_id'];
+            $check = $conn->prepare("SELECT c.id, s1.created_by_ceo_id AS ceo1, s2.created_by_ceo_id AS ceo2 FROM collaborations c JOIN schemes s1 ON c.scheme1_id = s1.id JOIN schemes s2 ON c.scheme2_id = s2.id WHERE c.id = ? AND c.status = 'approved'");
+            $check->bind_param('i', $collaborationId);
+            $check->execute();
+            $res = $check->get_result();
+            $row = $res->fetch_assoc();
+            if (!$row || ($row['ceo1'] != $ceoId && $row['ceo2'] != $ceoId)) {
+                echo json_encode(['success' => false, 'message' => 'Permission denied.']);
+                exit;
+            }
         }
         $stmt = $conn->prepare("UPDATE resource_requests SET status = ? WHERE id = ?");
         $stmt->bind_param("si", $status, $request_id);

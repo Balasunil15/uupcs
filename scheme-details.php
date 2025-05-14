@@ -7,38 +7,85 @@ if (empty($_SESSION['user_id'])) {
 }
 
 $schemeId = isset($_GET['id']) ? intval($_GET['id']) : 0;
-$query = "SELECT * FROM schemes WHERE id = ? AND assigned_engineer_id = ?";
-$stmt = $conn->prepare($query);
-$stmt->bind_param("ii", $schemeId, $_SESSION['user_id']);
-$stmt->execute();
-$result = $stmt->get_result();
-$scheme = $result->fetch_assoc();
+$collaborationId = isset($_GET['collaboration_id']) ? intval($_GET['collaboration_id']) : 0;
+$engineerId = $_SESSION['user_id'];
 
-if (!$scheme) {
-    die("Scheme not found or access denied.");
+if ($collaborationId) {
+    // Check if the engineer is assigned to either scheme in this collaboration
+    $collabQuery = "SELECT c.*, s1.assigned_engineer_id AS eng1, s2.assigned_engineer_id AS eng2
+        FROM collaborations c
+        JOIN schemes s1 ON c.scheme1_id = s1.id
+        JOIN schemes s2 ON c.scheme2_id = s2.id
+        WHERE c.id = ? AND c.status = 'approved'";
+    $collabStmt = $conn->prepare($collabQuery);
+    $collabStmt->bind_param("i", $collaborationId);
+    $collabStmt->execute();
+    $collabResult = $collabStmt->get_result();
+    $collab = $collabResult->fetch_assoc();
+    if (!$collab || ($collab['eng1'] != $engineerId && $collab['eng2'] != $engineerId)) {
+        die("Scheme not found or access denied.");
+    }
+    // Pick the scheme for this engineer
+    $schemeId = ($collab['eng1'] == $engineerId) ? $collab['scheme1_id'] : $collab['scheme2_id'];
+    // Fetch scheme details
+    $query = "SELECT * FROM schemes WHERE id = ?";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("i", $schemeId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $scheme = $result->fetch_assoc();
+    $stmt->close();
+} else {
+    $query = "SELECT * FROM schemes WHERE id = ? AND assigned_engineer_id = ?";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("ii", $schemeId, $_SESSION['user_id']);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $scheme = $result->fetch_assoc();
+
+    if (!$scheme) {
+        die("Scheme not found or access denied.");
+    }
 }
 
-// After fetching scheme details, add this query to fetch tasks
-$tasksQuery = "SELECT * FROM tasks WHERE scheme_id = ? AND engineer_id = ? AND status = 'ongoing'";
-$taskStmt = $conn->prepare($tasksQuery);
-$taskStmt->bind_param("ii", $schemeId, $_SESSION['user_id']);
-$taskStmt->execute();
-$tasks = $taskStmt->get_result();
+// Update all queries below to use $collaborationId if present
+if ($collaborationId) {
+    $tasksQuery = "SELECT * FROM tasks WHERE (scheme_id = ? OR collaboration_id = ?) AND engineer_id = ? AND status = 'ongoing'";
+    $taskStmt = $conn->prepare($tasksQuery);
+    $taskStmt->bind_param("iii", $schemeId, $collaborationId, $engineerId);
+    $taskStmt->execute();
+    $tasks = $taskStmt->get_result();
 
-// Add this after existing queries
-$resourcesQuery = "SELECT id, name FROM resources WHERE department = ?";
-$resourceStmt = $conn->prepare($resourcesQuery);
-$resourceStmt->bind_param("s", $_SESSION['department']);
-$resourceStmt->execute();
-$resources = $resourceStmt->get_result();
+    $resourcesQuery = "SELECT id, name FROM resources WHERE department = ?";
+    $resourceStmt = $conn->prepare($resourcesQuery);
+    $resourceStmt->bind_param("s", $_SESSION['department']);
+    $resourceStmt->execute();
+    $resources = $resourceStmt->get_result();
 
-// After fetching ongoing tasks
-$completedTasksQuery = "SELECT * FROM tasks WHERE scheme_id = ? AND engineer_id = ? AND status = 'completed'";
-$completedTaskStmt = $conn->prepare($completedTasksQuery);
-$completedTaskStmt->bind_param("ii", $schemeId, $_SESSION['user_id']);
-$completedTaskStmt->execute();
-$completedTasks = $completedTaskStmt->get_result();
+    $completedTasksQuery = "SELECT * FROM tasks WHERE (scheme_id = ? OR collaboration_id = ?) AND engineer_id = ? AND status = 'completed'";
+    $completedTaskStmt = $conn->prepare($completedTasksQuery);
+    $completedTaskStmt->bind_param("iii", $schemeId, $collaborationId, $engineerId);
+    $completedTaskStmt->execute();
+    $completedTasks = $completedTaskStmt->get_result();
+} else {
+    $tasksQuery = "SELECT * FROM tasks WHERE scheme_id = ? AND engineer_id = ? AND status = 'ongoing'";
+    $taskStmt = $conn->prepare($tasksQuery);
+    $taskStmt->bind_param("ii", $schemeId, $_SESSION['user_id']);
+    $taskStmt->execute();
+    $tasks = $taskStmt->get_result();
 
+    $resourcesQuery = "SELECT id, name FROM resources WHERE department = ?";
+    $resourceStmt = $conn->prepare($resourcesQuery);
+    $resourceStmt->bind_param("s", $_SESSION['department']);
+    $resourceStmt->execute();
+    $resources = $resourceStmt->get_result();
+
+    $completedTasksQuery = "SELECT * FROM tasks WHERE scheme_id = ? AND engineer_id = ? AND status = 'completed'";
+    $completedTaskStmt = $conn->prepare($completedTasksQuery);
+    $completedTaskStmt->bind_param("ii", $schemeId, $_SESSION['user_id']);
+    $completedTaskStmt->execute();
+    $completedTasks = $completedTaskStmt->get_result();
+}
 
 ?>
 <!DOCTYPE html>
@@ -321,7 +368,8 @@ $completedTasks = $completedTaskStmt->get_result();
                     action: 'addTask',
                     description: taskDescription,
                     schemeId: <?php echo $schemeId; ?>,
-                    engineerId: <?php echo $_SESSION['user_id']; ?>
+                    engineerId: <?php echo $_SESSION['user_id']; ?>,
+                    collaboration_id: <?php echo isset($collaborationId) ? $collaborationId : 0; ?>
                 },
                 success: function (response) {
                     const result = JSON.parse(response);
@@ -378,7 +426,8 @@ $completedTasks = $completedTaskStmt->get_result();
                     taskId: taskId,
                     resourceId: resourceId,
                     quantity: quantity,
-                    schemeId: schemeId // Ensure schemeId is sent
+                    schemeId: schemeId, // Ensure schemeId is sent
+                    collaboration_id: <?php echo isset($collaborationId) ? $collaborationId : 0; ?>
                 },
                 success: function (response) {
                     const result = JSON.parse(response);
@@ -413,7 +462,8 @@ $completedTasks = $completedTaskStmt->get_result();
                         type: 'POST',
                         data: {
                             action: 'completeTask',
-                            taskId: taskId
+                            taskId: taskId,
+                            collaboration_id: <?php echo isset($collaborationId) ? $collaborationId : 0; ?>
                         },
                         success: function (response) {
                             const result = JSON.parse(response);
