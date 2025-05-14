@@ -36,7 +36,9 @@ $stmt->close();
 
 // Fetch collaborated schemes for the session department
 $collaboratedSchemes = [];
-$collabQuery = "SELECT c.id AS collaboration_id, c.status, s1.*, s2.*
+$collabQuery = "SELECT c.id AS collaboration_id, c.status, 
+    s1.id AS id_1, s1.title AS title_1, s1.budget AS budget_1, s1.deadline AS deadline_1, s1.department AS department_1, s1.region AS region_1,
+    s2.id AS id_2, s2.title AS title_2, s2.budget AS budget_2, s2.deadline AS deadline_2, s2.department AS department_2, s2.region AS region_2
     FROM collaborations c
     JOIN schemes s1 ON c.scheme1_id = s1.id
     JOIN schemes s2 ON c.scheme2_id = s2.id
@@ -47,19 +49,7 @@ $collabStmt->bind_param('ss', $department, $department);
 $collabStmt->execute();
 $collabResult = $collabStmt->get_result();
 while ($row = $collabResult->fetch_assoc()) {
-    // For each collaboration, add both schemes if not already in the department's own list
-    if ($row['department'] === $department) {
-        $collaboratedSchemes[] = [
-            'collaboration_id' => $row['collaboration_id'],
-            'id' => $row['id'],
-            'title' => $row['title'],
-            'budget' => $row['budget'],
-            'deadline' => $row['deadline'],
-            'department' => $row['department'],
-            'collab_with' => $row['region'], // or other field to indicate partner
-        ];
-    } else {
-        // Add the other department's scheme as well
+    if ($row['department_1'] === $department) {
         $collaboratedSchemes[] = [
             'collaboration_id' => $row['collaboration_id'],
             'id' => $row['id_1'],
@@ -67,6 +57,16 @@ while ($row = $collabResult->fetch_assoc()) {
             'budget' => $row['budget_1'],
             'deadline' => $row['deadline_1'],
             'department' => $row['department_1'],
+            'collab_with' => $row['region_2'],
+        ];
+    } else {
+        $collaboratedSchemes[] = [
+            'collaboration_id' => $row['collaboration_id'],
+            'id' => $row['id_2'],
+            'title' => $row['title_2'],
+            'budget' => $row['budget_2'],
+            'deadline' => $row['deadline_2'],
+            'department' => $row['department_2'],
             'collab_with' => $row['region_1'],
         ];
     }
