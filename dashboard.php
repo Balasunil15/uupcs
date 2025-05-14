@@ -22,6 +22,44 @@ while ($row = $result->fetch_assoc()) {
 }
 
 $stmt->close();
+
+// Fetch overlapping schemes for notification modal
+$overlap_alerts = [];
+$ongoing_query = "SELECT * FROM schemes WHERE department = ? AND status = 'ongoing'";
+$ongoing_stmt = $conn->prepare($ongoing_query);
+$ongoing_stmt->bind_param('s', $department);
+$ongoing_stmt->execute();
+$ongoing_result = $ongoing_stmt->get_result();
+
+while ($current_scheme = $ongoing_result->fetch_assoc()) {
+    $overlap_query = "SELECT * FROM schemes WHERE department != ? AND status = 'ongoing'
+        AND region = ?
+        AND (
+            (startdate <= ? AND deadline >= ?) OR
+            (startdate <= ? AND deadline >= ?) OR
+            (startdate >= ? AND deadline <= ?)
+        )";
+    $overlap_stmt = $conn->prepare($overlap_query);
+    $overlap_stmt->bind_param(
+        'ssssssss',
+        $department,
+        $current_scheme['region'],
+        $current_scheme['deadline'], $current_scheme['startdate'],
+        $current_scheme['deadline'], $current_scheme['deadline'],
+        $current_scheme['startdate'], $current_scheme['deadline']
+    );
+    $overlap_stmt->execute();
+    $overlap_result = $overlap_stmt->get_result();
+
+    while ($other_scheme = $overlap_result->fetch_assoc()) {
+        $overlap_alerts[] = [
+            'current' => $current_scheme,
+            'other' => $other_scheme
+        ];
+    }
+    $overlap_stmt->close();
+}
+$ongoing_stmt->close();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -168,24 +206,49 @@ $stmt->close();
     <!-- Updated Bootstrap Notification Modal -->
     <div class="modal fade" id="notificationModal" tabindex="-1" aria-labelledby="notificationModalLabel"
         aria-hidden="true">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="notificationModalLabel">Scheme Overlap Alert</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body text-danger">
-                    <p><strong>Scheme ID: S007 - Road Development Project</strong> overlaps with:</p>
-                    <p style="margin-top: 15px">
-                        Water Department's Scheme:
-                        <strong>Water Pipeline Installation (WD-003)</strong>
-                    </p>
-                    <p style="margin-top: 10px">
-                        <i class="fas fa-calendar-alt"></i> Same time period: March 2024 - June 2024
-                    </p>
-                    <p>
-                        <i class="fas fa-map-marker-alt"></i> Same region: Sector 7, Civil Lines
-                    </p>
+                    <?php if (empty($overlap_alerts)): ?>
+                        <p>No overlapping schemes found.</p>
+                    <?php else: ?>
+                        <?php foreach ($overlap_alerts as $alert): ?>
+                            <div class="mb-4 border-bottom pb-3">
+                                <h6>Your Department's Scheme:</h6>
+                                <ul>
+                                    <li><strong>ID:</strong> <?php echo htmlspecialchars($alert['current']['id']); ?></li>
+                                    <li><strong>Title:</strong> <?php echo htmlspecialchars($alert['current']['title']); ?></li>
+                                    <li><strong>Department:</strong> <?php echo htmlspecialchars($alert['current']['department']); ?></li>
+                                    <li><strong>Description:</strong> <?php echo htmlspecialchars($alert['current']['description']); ?></li>
+                                    <li><strong>Region:</strong> <?php echo htmlspecialchars($alert['current']['region']); ?></li>
+                                    <li><strong>Assigned Engineer ID:</strong> <?php echo htmlspecialchars($alert['current']['assigned_engineer_id']); ?></li>
+                                    <li><strong>Start Date:</strong> <?php echo htmlspecialchars($alert['current']['startdate']); ?></li>
+                                    <li><strong>Deadline:</strong> <?php echo htmlspecialchars($alert['current']['deadline']); ?></li>
+                                    <li><strong>Budget:</strong> <?php echo htmlspecialchars($alert['current']['budget']); ?></li>
+                                    <li><strong>Status:</strong> <?php echo htmlspecialchars($alert['current']['status']); ?></li>
+                                    <li><strong>Created By CEO ID:</strong> <?php echo htmlspecialchars($alert['current']['created_by_ceo_id']); ?></li>
+                                </ul>
+                                <h6>Overlapping Scheme from Another Department:</h6>
+                                <ul>
+                                    <li><strong>ID:</strong> <?php echo htmlspecialchars($alert['other']['id']); ?></li>
+                                    <li><strong>Title:</strong> <?php echo htmlspecialchars($alert['other']['title']); ?></li>
+                                    <li><strong>Department:</strong> <?php echo htmlspecialchars($alert['other']['department']); ?></li>
+                                    <li><strong>Description:</strong> <?php echo htmlspecialchars($alert['other']['description']); ?></li>
+                                    <li><strong>Region:</strong> <?php echo htmlspecialchars($alert['other']['region']); ?></li>
+                                    <li><strong>Assigned Engineer ID:</strong> <?php echo htmlspecialchars($alert['other']['assigned_engineer_id']); ?></li>
+                                    <li><strong>Start Date:</strong> <?php echo htmlspecialchars($alert['other']['startdate']); ?></li>
+                                    <li><strong>Deadline:</strong> <?php echo htmlspecialchars($alert['other']['deadline']); ?></li>
+                                    <li><strong>Budget:</strong> <?php echo htmlspecialchars($alert['other']['budget']); ?></li>
+                                    <li><strong>Status:</strong> <?php echo htmlspecialchars($alert['other']['status']); ?></li>
+                                    <li><strong>Created By CEO ID:</strong> <?php echo htmlspecialchars($alert['other']['created_by_ceo_id']); ?></li>
+                                </ul>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
