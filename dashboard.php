@@ -129,11 +129,13 @@ $ongoing_stmt->close();
                 <h1>Dashboard</h1>
             </div>
             <div class="user-wrapper">
-                <!-- Changed notification element to a Bootstrap trigger button -->
+                <!-- Notification bell button: show badge only if overlaps exist -->
                 <button type="button" class="btn notification-btn" data-bs-toggle="modal"
                     data-bs-target="#notificationModal">
                     <i class="fas fa-bell"></i>
-                    <span class="notification-badge">3</span>
+                    <?php if (count($overlap_alerts) > 0): ?>
+                        <span class="notification-badge"><?php echo count($overlap_alerts); ?></span>
+                    <?php endif; ?>
                 </button>
                 <div class="dropdown">
                     <button class="btn btn-secondary dropdown-toggle rounded-circle" type="button" id="userDropdown"
