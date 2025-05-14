@@ -52,10 +52,23 @@ while ($current_scheme = $ongoing_result->fetch_assoc()) {
     $overlap_result = $overlap_stmt->get_result();
 
     while ($other_scheme = $overlap_result->fetch_assoc()) {
-        $overlap_alerts[] = [
-            'current' => $current_scheme,
-            'other' => $other_scheme
-        ];
+        // Check if this pair is already in collaborations table (any direction, any status)
+        $check_collab = $conn->prepare(
+            "SELECT id FROM collaborations WHERE 
+                ((scheme1_id = ? AND scheme2_id = ?) OR (scheme1_id = ? AND scheme2_id = ?))"
+        );
+        $scheme1_id = $current_scheme['id'];
+        $scheme2_id = $other_scheme['id'];
+        $check_collab->bind_param('iiii', $scheme1_id, $scheme2_id, $scheme2_id, $scheme1_id);
+        $check_collab->execute();
+        $check_collab->store_result();
+        if ($check_collab->num_rows === 0) {
+            $overlap_alerts[] = [
+                'current' => $current_scheme,
+                'other' => $other_scheme
+            ];
+        }
+        $check_collab->close();
     }
     $overlap_stmt->close();
 }
@@ -248,6 +261,13 @@ $ongoing_stmt->close();
                                     <li><strong>Status:</strong> <?php echo htmlspecialchars($alert['other']['status']); ?></li>
                                     <li><strong>Created By CEO ID:</strong> <?php echo htmlspecialchars($alert['other']['created_by_ceo_id']); ?></li>
                                 </ul>
+                                <button class="btn btn-primary collaborate-btn mt-2"
+                                    data-scheme1="<?php echo htmlspecialchars($alert['current']['id']); ?>"
+                                    data-scheme2="<?php echo htmlspecialchars($alert['other']['id']); ?>"
+                                    data-initiator="<?php echo htmlspecialchars($alert['current']['created_by_ceo_id']); ?>"
+                                    data-receiver="<?php echo htmlspecialchars($alert['other']['created_by_ceo_id']); ?>">
+                                    Collaborate
+                                </button>
                             </div>
                         <?php endforeach; ?>
                     <?php endif; ?>
@@ -329,6 +349,42 @@ $ongoing_stmt->close();
                 },
                 error: function () {
                     alert("An error occurred. Please try again.");
+                }
+            });
+        });
+
+        // Collaborate button handler
+        $(document).on('click', '.collaborate-btn', function () {
+            var scheme1_id = $(this).data('scheme1');
+            var scheme2_id = $(this).data('scheme2');
+            var initiator_ceo_id = $(this).data('initiator');
+            var receiver_ceo_id = $(this).data('receiver');
+            var btn = $(this);
+
+            btn.prop('disabled', true).text('Requesting...');
+
+            $.ajax({
+                url: 'backend.php',
+                type: 'POST',
+                data: {
+                    action: 'collaborate',
+                    scheme1_id: scheme1_id,
+                    scheme2_id: scheme2_id,
+                    initiator_ceo_id: initiator_ceo_id,
+                    receiver_ceo_id: receiver_ceo_id
+                },
+                dataType: 'json',
+                success: function (response) {
+                    if (response.success) {
+                        btn.removeClass('btn-primary').addClass('btn-success').text('Requested');
+                    } else {
+                        btn.prop('disabled', false).text('Collaborate');
+                        alert(response.message || 'Collaboration request failed.');
+                    }
+                },
+                error: function () {
+                    btn.prop('disabled', false).text('Collaborate');
+                    alert('An error occurred. Please try again.');
                 }
             });
         });

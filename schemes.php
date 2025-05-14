@@ -195,47 +195,8 @@ $stmt->close();
           </table>
         </div>
       </div>
-
-      <div class="tab-content" id="collaborated">
-        <div class="schemes-table">
-          <table>
-            <thead>
-              <tr>
-                <th>SID</th>
-                <th>Scheme Title</th>
-                <th>Budget</th>
-                <th>Deadline</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td onclick="window.location.href='tasks.php'">006</td>
-                <td>Smart Traffic System</td>
-                <td>₹75,00,000</td>
-                <td>2024-09-01</td>
-                <td>
-                  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#schemeModal">
-                    <i class="fas fa-eye"></i> View
-                  </button>
-                </td>
-              </tr>
-              <tr>
-                <td onclick="window.location.href='tasks.php'">007</td>
-                <td>Waste Management</td>
-                <td>₹60,00,000</td>
-                <td>2024-07-30</td>
-                <td>
-                  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#schemeModal">
-                    <i class="fas fa-eye"></i> View
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
     </div>
+  </div>
 
     <!-- Updated Modal Structure to Include Description, Start Date, and Region -->
     <div class="modal fade" id="schemeModal" tabindex="-1" aria-labelledby="schemeModalLabel" aria-hidden="true">

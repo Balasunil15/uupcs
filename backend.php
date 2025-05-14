@@ -346,6 +346,51 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action'])) {
         exit;
     }
 
+    if ($_POST['action'] === 'collaborate') {
+        $scheme1_id = intval($_POST['scheme1_id'] ?? 0);
+        $scheme2_id = intval($_POST['scheme2_id'] ?? 0);
+        $initiator_ceo_id = intval($_POST['initiator_ceo_id'] ?? 0);
+        $receiver_ceo_id = intval($_POST['receiver_ceo_id'] ?? 0);
+
+        if (!$scheme1_id || !$scheme2_id || !$initiator_ceo_id || !$receiver_ceo_id) {
+            echo json_encode(['success' => false, 'message' => 'Missing collaboration details.']);
+            exit;
+        }
+
+        // Prevent duplicate collaboration requests for the same schemes and CEOs
+        $check = $conn->prepare("SELECT id FROM collaborations WHERE 
+            ((scheme1_id = ? AND scheme2_id = ?) OR (scheme1_id = ? AND scheme2_id = ?))
+            AND ((initiator_ceo_id = ? AND receiver_ceo_id = ?) OR (initiator_ceo_id = ? AND receiver_ceo_id = ?))
+            AND status = 'requested'
+        ");
+        $check->bind_param(
+            "iiiiiiii",
+            $scheme1_id, $scheme2_id,
+            $scheme2_id, $scheme1_id,
+            $initiator_ceo_id, $receiver_ceo_id,
+            $receiver_ceo_id, $initiator_ceo_id
+        );
+        $check->execute();
+        $check->store_result();
+        if ($check->num_rows > 0) {
+            echo json_encode(['success' => false, 'message' => 'Collaboration already requested.']);
+            exit;
+        }
+        $check->close();
+
+        $status = 'requested';
+        $stmt = $conn->prepare("INSERT INTO collaborations (scheme1_id, scheme2_id, initiator_ceo_id, receiver_ceo_id, status) VALUES (?, ?, ?, ?, ?)");
+        $stmt->bind_param("iiiis", $scheme1_id, $scheme2_id, $initiator_ceo_id, $receiver_ceo_id, $status);
+
+        if ($stmt->execute()) {
+            echo json_encode(['success' => true, 'message' => 'Collaboration request sent.']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to send collaboration request.']);
+        }
+        $stmt->close();
+        exit;
+    }
+
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'get_scheme') {
