@@ -1,7 +1,7 @@
 <?php
 $host     = 'localhost';
 $user     = 'root';      // update with your DB username
-$password = '';      // update with your DB password
+$password = 'root';      // update with your DB password
 $dbname   = 'uupcs';
 
 $conn = new mysqli($host, $user, $password, $dbname);
